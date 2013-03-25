@@ -103,10 +103,9 @@ public:
 	int getHour() {
 		return hour;
 	}
-}
+};
 
 class DateTime {
-//TODO: Split into Date and Time classes as members.
 private:
 	Date date;
 	Time time;
@@ -172,7 +171,7 @@ public:
 //Encapsulates the DS1307 Clock Module.
 class Clock {
 private:
-	// Nothing Private for now. The module itself has memory.
+	// Nothing Private for now. The module itself has the required memory.
 public:
 	void setDateTime( DateTime dt ) {
 		
