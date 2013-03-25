@@ -106,68 +106,64 @@ public:
 class DateTime {
 //TODO: Split into Date and Time classes as members.
 private:
-	int second, minute, hour, dayOfWeek, dayOfMonth, month, year;
+	Date date;
+	Time time;
 public:
 	DateTime( int Second, int Minute, int Hour, int DayOfWeek, int DayOfMonth, int Month, int Year ) {
-		second = Second;
-		minute = Minute;
-		hour = Hour;
-		dayOfWeek = DayOfWeek;
-		dayOfMonth = DayOfMonth;
-		month = Month;
-		year = Year;
+		date = Date( DayOfWeek, DayOfMonth, Month, Year )
+		time = Time( Second, Minute, Hour );
 	}
 	
 	int getSecond() {
-		return second;
+		return time.getSecond();
 	}
 	
 	int getMinute() {
-		return minute;
+		return time.getMinute();
 	}
 	
 	int getHour() {
-		return hour;
+		return time.getHour();
 	}
 	
 	int getDayOfWeek() {
-		return dayOfWeek;
+		return date.getDayOfWeek();
 	}
 	
 	int getDayOfMonth() {
-		return dayOfMonth;
+		return date.getDayOfMonth();
 	}
 	
 	int getMonth() {
-		return month;
+		return date.getMonth();
 	}
 	
 	int getYear() {
-		return year;
+		return date.getYear();
 	}
 	
 	void printToSerial() {
 		if (hour < 10)
 			Serial.print("0");
-		Serial.print(hour, DEC);
+		Serial.print(getHour(), DEC);
 		Serial.print(":");
 		if (minute < 10)
 			Serial.print("0");
-		Serial.print(minute, DEC);
+		Serial.print(getMinute(), DEC);
 		Serial.print(":");
 		if (second < 10)
 			Serial.print("0");
-		Serial.print(second, DEC);
+		Serial.print(getSecond(), DEC);
 		Serial.print("  ");
-		Serial.print(Day[dayOfWeek]);
+		Serial.print(Day[getDayOfWeek()]);
 		Serial.print(", ");
-		Serial.print(dayOfMonth, DEC);
+		Serial.print(getDayOfMonth(), DEC);
 		Serial.print(" ");
-		Serial.print(Mon[month]);
+		Serial.print(Mon[getMonth()]);
 		Serial.print(" 20");
 		if (year < 10)
 			Serial.print("0");
-		Serial.println(year, DEC);
+		Serial.println(getYear(), DEC);
 	}
 };
 
