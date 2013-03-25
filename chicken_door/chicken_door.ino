@@ -375,6 +375,91 @@ void setup() {
 
 void loop()
 {
+	if ( Serial.available() ) {
+		// Read a command off the serial port, and switch on it. 
+		switch ( Serial.read() ) {
+			
+			// If command = "Tt" Set Date
+			case 84:
+			case 116:
+				clock.setDateTime( Clock::serialReadDateTime() );
+				Serial.print("Date / Time set to ");
+				clock.getDateTime().printToSerial();
+				break;
+
+			// If command = "Rr" Read Date ...
+			case 82:
+			case 114:
+				Serial.print("Date / Time is ");
+				clock.getDateTime().printToSerial();
+				break;
+				break;
+
+			// If command = "Qq" RTC1307 Memory Functions
+			case 81:
+			case 113:
+				// Pause to make sure that we get the next command...
+				delay(100);
+				if (Serial.available()) {
+					int i;
+					switch ( Serial.read() ) {
+						
+						// If command = "1" RTC1307 Initialize Memory - All Data will be set to 255 (0xff).  Therefore 255 or 0 will be an invalid value.  
+						case 49:
+							Wire.beginTransmission(DS1307_I2C_ADDRESS); // 255 will be the init value and 0 will be considered an error that occurs when the RTC is in Battery mode.
+							I2C_WRITE(0x08); // Set the register pointer to be just past the date/time registers.
+							for (i = 1; i <= 24; i++) {
+								I2C_WRITE(0Xff);
+								delay(10);
+							}   
+							Wire.endTransmission();
+							Wire.beginTransmission(DS1307_I2C_ADDRESS);   
+							I2C_WRITE(0x21); // Set the register pointer to 33 for second half of registers. Only 32 writes per connection allowed.
+							for (i = 1; i <= 33; i++) {
+								I2C_WRITE(0Xff);
+								delay(10);
+							}   
+							Wire.endTransmission();
+							clock.getDateTime().printToSerial();
+							Serial.println(": RTC1307 Initialized Memory");
+							break;
+						
+						// If command = "2" RTC1307 Memory Dump
+						case 50:
+							clock.getDateTime().printToSerial();
+							Serial.println(": RTC 1307 Dump Begin");
+							Wire.beginTransmission(DS1307_I2C_ADDRESS);
+							I2C_WRITE(zero);
+							Wire.endTransmission();
+							Wire.requestFrom(DS1307_I2C_ADDRESS, 32);
+							for (i = 0; i <= 31; i++) {  //Register 0-31 - only 32 registers allowed per I2C connection
+								test = I2C_READ();
+								Serial.print(i);
+								Serial.print(": ");
+								Serial.print(test, DEC);
+								Serial.print(" : ");
+								Serial.println(test, HEX);
+							}
+							Wire.beginTransmission(DS1307_I2C_ADDRESS);
+							I2C_WRITE(0x20);
+							Wire.endTransmission();
+							Wire.requestFrom(DS1307_I2C_ADDRESS, 32);  
+							for (i = 32; i <= 63; i++) {         //Register 32-63 - only 32 registers allowed per I2C connection
+								test = I2C_READ();
+								Serial.print(i);
+								Serial.print(": ");
+								Serial.print(test, DEC);
+								Serial.print(" : ");
+								Serial.println(test, HEX);
+							}
+							Serial.println(" RTC1307 Dump end");
+							break;
+					}
+				}
+				break;
+		}
+	}
+	// TODO: Switch?
 	if (Serial.available()) {      // Look for char in serial que and process if found
 		int command = Serial.read(); // This is the command char, in ascii form, sent from the serial port
 		if (command == 84 || command == 116) {      //If command = "Tt" Set Date
@@ -447,10 +532,13 @@ void loop()
 	}
 	
 	DateTime dt = clock.getDateTime();
-	dt.printToSerial();
 	byte hour = dt.getHour();
 	byte minute = dt.getMinute();
 	byte second = dt.getSecond();
+
+	if( second % 5 == 0 ) {
+		dt.printToSerial();
+	}
 	
 	//OPEN DOOR IF TIME IS SUNRISE   
 	if ( (minute % 2 == 0) && door.isClosed() ) {
