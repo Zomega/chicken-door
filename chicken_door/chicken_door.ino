@@ -11,6 +11,7 @@
 #endif
 
 // Global Variables
+// TODO: Remove most of these.
 int command = 0;       // This is the command char, in ascii form, sent from the serial port     
 int i;
 long previousMillis = 0;        // will store last time Temp was updated
@@ -32,7 +33,78 @@ byte bcdToDec(byte val)
 	return ( (val/16*10) + (val%16) );
 }
 
+//TODO: A time compare utility.
+
+/******************************************************************************
+ * Date Class
+ ******************************************************************************
+ * This class contains the information needed to encapsulate a date object.
+ * Notable members include dayOfWeek, dayOfMonth, month, year.
+ * These members are redundant, and should be checked and maintained by
+ * structural invariance.
+ */
+class Date {
+private:
+	int dayOfWeek, dayOfMonth, month, year;
+public:
+	DateTime( int DayOfWeek, int DayOfMonth, int Month, int Year ) {
+		//TODO: Ensure values are valid and consistent.
+		dayOfWeek = DayOfWeek;
+		dayOfMonth = DayOfMonth;
+		month = Month;
+		year = Year;
+	}
+	
+	int getDayOfWeek() {
+		return dayOfWeek;
+	}
+	
+	int getDayOfMonth() {
+		return dayOfMonth;
+	}
+	
+	int getMonth() {
+		return month;
+	}
+	
+	int getYear() {
+		return year;
+	}
+};
+
+/******************************************************************************
+ * Time Class
+ ******************************************************************************
+ * This class contains the information needed to encapsulate a time object.
+ * The time is rounded to the nearest second. It is assumed no further granularity is useful.
+ * This class may be used to represent either a time interval, or a time with respect to midnight.
+ */
+class Time {
+private:
+	int second, minute, hour;
+public:
+	Time( int Second, int Minute, int Hour ) {
+		//TODO: Ensure validity.
+		second = Second;
+		minute = Minute;
+		hour = Hour;
+	}
+	
+	int getSecond() {
+		return second;
+	}
+	
+	int getMinute() {
+		return minute;
+	}
+	
+	int getHour() {
+		return hour;
+	}
+}
+
 class DateTime {
+//TODO: Split into Date and Time classes as members.
 private:
 	int second, minute, hour, dayOfWeek, dayOfMonth, month, year;
 public:
@@ -229,7 +301,7 @@ public:
 
 		servo_pin = -1;
 	}
-	// Initialize Member Variables. Heavily dependant on physical implementation.
+	// Initialize Member Variables. Heavily Dependant on physical implementation.
 	BistableServo( int pin, int closed_pos, int open_pos ) {
 		closed_position = closed_pos;
 		open_position = open_pos;
