@@ -47,7 +47,8 @@ class Date {
 private:
 	int dayOfWeek, dayOfMonth, month, year;
 public:
-	DateTime( int DayOfWeek, int DayOfMonth, int Month, int Year ) {
+	Date() {}
+	Date( int DayOfWeek, int DayOfMonth, int Month, int Year ) {
 		//TODO: Ensure values are valid and consistent.
 		dayOfWeek = DayOfWeek;
 		dayOfMonth = DayOfMonth;
@@ -83,6 +84,7 @@ class Time {
 private:
 	int second, minute, hour;
 public:
+	Time() {}
 	Time( int Second, int Minute, int Hour ) {
 		//TODO: Ensure validity.
 		second = Second;
@@ -110,7 +112,7 @@ private:
 	Time time;
 public:
 	DateTime( int Second, int Minute, int Hour, int DayOfWeek, int DayOfMonth, int Month, int Year ) {
-		date = Date( DayOfWeek, DayOfMonth, Month, Year )
+		date = Date( DayOfWeek, DayOfMonth, Month, Year );
 		time = Time( Second, Minute, Hour );
 	}
 	
@@ -143,15 +145,15 @@ public:
 	}
 	
 	void printToSerial() {
-		if (hour < 10)
+		if (getHour() < 10)
 			Serial.print("0");
 		Serial.print(getHour(), DEC);
 		Serial.print(":");
-		if (minute < 10)
+		if (getMinute() < 10)
 			Serial.print("0");
 		Serial.print(getMinute(), DEC);
 		Serial.print(":");
-		if (second < 10)
+		if (getSecond() < 10)
 			Serial.print("0");
 		Serial.print(getSecond(), DEC);
 		Serial.print("  ");
@@ -161,7 +163,7 @@ public:
 		Serial.print(" ");
 		Serial.print(Mon[getMonth()]);
 		Serial.print(" 20");
-		if (year < 10)
+		if (getYear() < 10)
 			Serial.print("0");
 		Serial.println(getYear(), DEC);
 	}
