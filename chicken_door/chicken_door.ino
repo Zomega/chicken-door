@@ -11,12 +11,10 @@
 #endif
 
 // Global Variables
-// TODO: Remove most of these.
-int command = 0;       // This is the command char, in ascii form, sent from the serial port     
-int i;
-long previousMillis = 0;        // will store last time Temp was updated
+// TODO: Remove most of these.  
 byte test;
 byte zero;
+
 char  *Day[] = {"","Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
 char  *Mon[] = {"","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"};
  
@@ -378,7 +376,7 @@ void setup() {
 void loop()
 {
 	if (Serial.available()) {      // Look for char in serial que and process if found
-		command = Serial.read();
+		int command = Serial.read(); // This is the command char, in ascii form, sent from the serial port
 		if (command == 84 || command == 116) {      //If command = "Tt" Set Date
 			clock.setDateTime( Clock::serialReadDateTime() );
 			clock.getDateTime().printToSerial();
@@ -391,6 +389,7 @@ void loop()
 		else if (command == 81 || command == 113) {      //If command = "Qq" RTC1307 Memory Functions
 			delay(100);     
 			if (Serial.available()) {
+				int i;
 				command = Serial.read(); 
 				if (command == 49) {	//If command = "1" RTC1307 Initialize Memory - All Data will be set to 
 							// 255 (0xff).  Therefore 255 or 0 will be an invalid value.  
@@ -445,9 +444,7 @@ void loop()
 		}
 		Serial.print("Command: ");
 		Serial.println(command);     // Echo command CHAR in ascii that was sent
-		}
-		command = 0;                 // reset command 
-		delay(100);
+	}
 	
 	DateTime dt = clock.getDateTime();
 	dt.printToSerial();
