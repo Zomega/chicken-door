@@ -114,7 +114,7 @@ public:
 		I2C_WRITE(decToBcd( dt.getHour() ));	// If you want 12 hour am/pm you need to set
 						// bit 6 (also need to change readDateDs1307)
 		I2C_WRITE(decToBcd( dt.getDayOfWeek() ));
-		I2C_WRITE(decToBcd( dt.dayOfMonth() ));
+		I2C_WRITE(decToBcd( dt.getDayOfMonth() ));
 		I2C_WRITE(decToBcd( dt.getMonth() ));
 		I2C_WRITE(decToBcd( dt.getYear() ));
 		Wire.endTransmission();
@@ -137,9 +137,9 @@ public:
 		month      = bcdToDec(I2C_READ());
 		year       = bcdToDec(I2C_READ());
 	
-		return DateTime( second, minute, hour, dayOfWeek, dayOfMonth, month, year )
+		return DateTime( second, minute, hour, dayOfWeek, dayOfMonth, month, year );
 	}
-}
+};
 
 // 1) Sets the date and time on the ds1307
 // 2) Starts the clock
