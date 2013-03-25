@@ -15,7 +15,6 @@
 int command = 0;       // This is the command char, in ascii form, sent from the serial port     
 int i;
 long previousMillis = 0;        // will store last time Temp was updated
-byte second, minute, hour, dayOfWeek, dayOfMonth, month, year;
 byte test;
 byte zero;
 char  *Day[] = {"","Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
@@ -42,7 +41,7 @@ byte bcdToDec(byte val)
  * Notable members include dayOfWeek, dayOfMonth, month, year.
  * These members are redundant, and should be checked and maintained by
  * structural invariance.
- */
+ ******************************************************************************/
 class Date {
 private:
 	int dayOfWeek, dayOfMonth, month, year;
@@ -71,15 +70,28 @@ public:
 	int getYear() {
 		return year;
 	}
+	
+	void printToSerial() {
+		Serial.print(Day[getDayOfWeek()]);
+		Serial.print(", ");
+		Serial.print(getDayOfMonth(), DEC);
+		Serial.print(" ");
+		Serial.print(Mon[getMonth()]);
+		Serial.print(" 20");
+		if (getYear() < 10)
+			Serial.print("0");
+		Serial.print(getYear(), DEC);
+	}
 };
 
 /******************************************************************************
  * Time Class
  ******************************************************************************
  * This class contains the information needed to encapsulate a time object.
- * The time is rounded to the nearest second. It is assumed no further granularity is useful.
- * This class may be used to represent either a time interval, or a time with respect to midnight.
- */
+ * The time is rounded to the nearest second. It is assumed no further
+ * granularity is useful. This class may be used to represent either a time
+ * interval, or a time with respect to midnight.
+ ******************************************************************************/
 class Time {
 private:
 	int second, minute, hour;
@@ -103,8 +115,27 @@ public:
 	int getHour() {
 		return hour;
 	}
+	
+	void printToSerial() {
+		if (getHour() < 10)
+			Serial.print("0");
+		Serial.print(getHour(), DEC);
+		Serial.print(":");
+		if (getMinute() < 10)
+			Serial.print("0");
+		Serial.print(getMinute(), DEC);
+		Serial.print(":");
+		if (getSecond() < 10)
+			Serial.print("0");
+		Serial.print(getSecond(), DEC);
+	}
 };
 
+/******************************************************************************
+ * DateTime Class
+ ******************************************************************************
+ * Combines Date and Time to represent a time on a particular date.
+ ******************************************************************************/
 class DateTime {
 private:
 	Date date;
@@ -144,31 +175,18 @@ public:
 	}
 	
 	void printToSerial() {
-		if (getHour() < 10)
-			Serial.print("0");
-		Serial.print(getHour(), DEC);
-		Serial.print(":");
-		if (getMinute() < 10)
-			Serial.print("0");
-		Serial.print(getMinute(), DEC);
-		Serial.print(":");
-		if (getSecond() < 10)
-			Serial.print("0");
-		Serial.print(getSecond(), DEC);
+		time.printToSerial();
 		Serial.print("  ");
-		Serial.print(Day[getDayOfWeek()]);
-		Serial.print(", ");
-		Serial.print(getDayOfMonth(), DEC);
-		Serial.print(" ");
-		Serial.print(Mon[getMonth()]);
-		Serial.print(" 20");
-		if (getYear() < 10)
-			Serial.print("0");
-		Serial.println(getYear(), DEC);
+		date.printToSerial();
+		Serial.println("");
 	}
 };
 
-//Encapsulates the DS1307 Clock Module.
+/******************************************************************************
+ * Clock Class
+ ******************************************************************************
+ * Encapsulates the DS1307 Clock Module.
+ ******************************************************************************/
 class Clock {
 private:
 	// Nothing Private for now. The module itself has the required memory.
@@ -188,7 +206,9 @@ public:
 		I2C_WRITE(decToBcd( dt.getYear() ));
 		Wire.endTransmission();
 	}
+
 	DateTime getDateTime() {
+		// Reset the register pointer
 		Wire.beginTransmission(DS1307_I2C_ADDRESS);
 		I2C_WRITE(zero);
 		Wire.endTransmission();
@@ -196,71 +216,33 @@ public:
 		Wire.requestFrom(DS1307_I2C_ADDRESS, 7);
 
 		// A few of these need masks because certain bits are control bits
-		second     = bcdToDec(I2C_READ() & 0x7f);
-		minute     = bcdToDec(I2C_READ());
+		byte second     = bcdToDec(I2C_READ() & 0x7f);
+		byte minute     = bcdToDec(I2C_READ());
 		
 		// Hours are in 24 hour time.
-		hour       = bcdToDec(I2C_READ() & 0x3f);
-		dayOfWeek  = bcdToDec(I2C_READ());
-		dayOfMonth = bcdToDec(I2C_READ());
-		month      = bcdToDec(I2C_READ());
-		year       = bcdToDec(I2C_READ());
+		byte hour       = bcdToDec(I2C_READ() & 0x3f);
+		byte dayOfWeek  = bcdToDec(I2C_READ());
+		byte dayOfMonth = bcdToDec(I2C_READ());
+		byte month      = bcdToDec(I2C_READ());
+		byte year       = bcdToDec(I2C_READ());
 	
+		return DateTime( second, minute, hour, dayOfWeek, dayOfMonth, month, year );
+	}
+	
+	static DateTime serialReadDateTime() {
+		byte second = (byte) ((Serial.read() - 48) * 10 + (Serial.read() - 48));
+		byte minute = (byte) ((Serial.read() - 48) *10 +  (Serial.read() - 48));
+		byte hour  = (byte) ((Serial.read() - 48) *10 +  (Serial.read() - 48));
+		byte dayOfWeek = (byte) (Serial.read() - 48);
+		byte dayOfMonth = (byte) ((Serial.read() - 48) *10 +  (Serial.read() - 48));
+		byte month = (byte) ((Serial.read() - 48) *10 +  (Serial.read() - 48));
+		byte year= (byte) ((Serial.read() - 48) *10 +  (Serial.read() - 48));
+		
 		return DateTime( second, minute, hour, dayOfWeek, dayOfMonth, month, year );
 	}
 };
 
-// 1) Sets the date and time on the ds1307
-// 2) Starts the clock
-// 3) Sets hour mode to 24 hour clock
-// Assumes you're passing in valid numbers, Probably need to put in checks for valid numbers.
- 
-void setDateDs1307()
-{
-	second = (byte) ((Serial.read() - 48) * 10 + (Serial.read() - 48)); // Use of (byte) type casting and ascii math to achieve result.  
-	minute = (byte) ((Serial.read() - 48) *10 +  (Serial.read() - 48));
-	hour  = (byte) ((Serial.read() - 48) *10 +  (Serial.read() - 48));
-	dayOfWeek = (byte) (Serial.read() - 48);
-	dayOfMonth = (byte) ((Serial.read() - 48) *10 +  (Serial.read() - 48));
-	month = (byte) ((Serial.read() - 48) *10 +  (Serial.read() - 48));
-	year= (byte) ((Serial.read() - 48) *10 +  (Serial.read() - 48));
-	
-	Wire.beginTransmission(DS1307_I2C_ADDRESS);
-	I2C_WRITE(zero);
-	
-	I2C_WRITE(decToBcd(second) & 0x7f);	// 0 to bit 7 starts the clock
-	I2C_WRITE(decToBcd(minute));
-	I2C_WRITE(decToBcd(hour));	// If you want 12 hour am/pm you need to set
-					// bit 6 (also need to change readDateDs1307)
-	I2C_WRITE(decToBcd(dayOfWeek));
-	I2C_WRITE(decToBcd(dayOfMonth));
-	I2C_WRITE(decToBcd(month));
-	I2C_WRITE(decToBcd(year));
-	Wire.endTransmission();
-}
- 
-// Gets the date and time from the ds1307 and prints result
-void getDateDs1307()
-{
-	// Reset the register pointer
-	Wire.beginTransmission(DS1307_I2C_ADDRESS);
-	I2C_WRITE(zero);
-	Wire.endTransmission();
-
-	Wire.requestFrom(DS1307_I2C_ADDRESS, 7);
-
-	// A few of these need masks because certain bits are control bits
-	second     = bcdToDec(I2C_READ() & 0x7f);
-	minute     = bcdToDec(I2C_READ());
-	hour       = bcdToDec(I2C_READ() & 0x3f);  // Need to change this if 12 hour am/pm
-	dayOfWeek  = bcdToDec(I2C_READ());
-	dayOfMonth = bcdToDec(I2C_READ());
-	month      = bcdToDec(I2C_READ());
-	year       = bcdToDec(I2C_READ());
-	
-	DateTime( second, minute, hour, dayOfWeek, dayOfMonth, month, year ).printToSerial();
-	
-}
+Clock clock; // Define a Clock object for global use...
 
 class BistableServo {
   
@@ -394,16 +376,16 @@ void setup() {
 } 
 
 void loop()
-{{
+{
 	if (Serial.available()) {      // Look for char in serial que and process if found
 		command = Serial.read();
 		if (command == 84 || command == 116) {      //If command = "Tt" Set Date
-			setDateDs1307();
-			getDateDs1307();
+			clock.setDateTime( Clock::serialReadDateTime() );
+			clock.getDateTime().printToSerial();
 			Serial.println(" ");
 		}
 		else if (command == 82 || command == 114) {      //If command = "Rr" Read Date ... BBR
-			getDateDs1307();
+			clock.getDateTime().printToSerial();
 			Serial.println(" ");
 		}
 		else if (command == 81 || command == 113) {      //If command = "Qq" RTC1307 Memory Functions
@@ -427,11 +409,11 @@ void loop()
 						delay(10);
 					}   
 					Wire.endTransmission();
-					getDateDs1307();
+					clock.getDateTime().printToSerial();
 					Serial.println(": RTC1307 Initialized Memory");
 				}
 				else if (command == 50) {      //If command = "2" RTC1307 Memory Dump
-					getDateDs1307();
+					clock.getDateTime().printToSerial();
 					Serial.println(": RTC 1307 Dump Begin");
 					Wire.beginTransmission(DS1307_I2C_ADDRESS);
 					I2C_WRITE(zero);
@@ -466,9 +448,12 @@ void loop()
 		}
 		command = 0;                 // reset command 
 		delay(100);
-	}
 	
-	getDateDs1307();
+	DateTime dt = clock.getDateTime();
+	dt.printToSerial();
+	byte hour = dt.getHour();
+	byte minute = dt.getMinute();
+	byte second = dt.getSecond();
 	
 	//OPEN DOOR IF TIME IS SUNRISE   
 	if ( (minute % 2 == 0) && door.isClosed() ) {
