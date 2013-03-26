@@ -143,7 +143,13 @@ public:
 	}
 
 	boolean operator < (Time &other) {
-  		return !( *this == other && *this > other );
+  		if( this->getHour() == other.getHour() ) {
+	  		if( this->getMinute() == other.getMinute() ) {
+				return this->getSecond() < other.getSecond();
+			}
+			return this->getMinute() < other.getMinute();
+		}
+		return this->getHour() < other.getHour();
 	}
 	
 	static boolean isTimeInRange( Time startTime, Time endTime, Time time ) {
@@ -151,7 +157,7 @@ public:
 			return false;
 		}
 		if( startTime < endTime ) {
-			return startTime < time && time < endTime;
+			return ( ( startTime < time ) && ( time < endTime ) );
 		}
 		// The time interval includes midnight. It wraps around.
 		return !( Time::isTimeInRange( endTime, startTime, time ) );
@@ -502,8 +508,8 @@ void loop()
 	byte minute = dt.getMinute();
 	byte second = dt.getSecond();
 
-	Time openTime = Time(16,25,0);
-	Time closeTime = Time(16,30,0);
+	Time openTime = Time(0,25,16); // Open at 16:25
+	Time closeTime = Time(0,30,16); // Close at 16:30
 	
 	//OPEN DOOR IF TIME IS SUNRISE   
 	if ( Time::isTimeInRange( openTime, closeTime, dt.getTime() ) && door.isClosed() ) {
