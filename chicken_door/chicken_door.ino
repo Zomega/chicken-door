@@ -10,14 +10,6 @@
   #define I2C_READ Wire.receive
 #endif
 
-// Global Variables
-// TODO: Remove most of these.  
-byte test;
-byte zero;
-
-char  *Day[] = {"","Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
-char  *Mon[] = {"","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"};
- 
 // Convert normal decimal numbers to binary coded decimal
 byte decToBcd(byte val)
 {
@@ -30,8 +22,6 @@ byte bcdToDec(byte val)
 	return ( (val/16*10) + (val%16) );
 }
 
-//TODO: A time compare utility.
-
 /******************************************************************************
  * Date Class
  ******************************************************************************
@@ -40,12 +30,16 @@ byte bcdToDec(byte val)
  * These members are redundant, and should be checked and maintained by
  * structural invariance.
  ******************************************************************************/
+ 
+char *Day[] = {"","Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
+char  *Mon[] = {"","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"};
+
 class Date {
 private:
-	int dayOfWeek, dayOfMonth, month, year;
+	byte dayOfWeek, dayOfMonth, month, year;
 public:
 	Date() {}
-	Date( int DayOfWeek, int DayOfMonth, int Month, int Year ) {
+	Date( byte DayOfWeek, byte DayOfMonth, byte Month, byte Year ) {
 		//TODO: Ensure values are valid and consistent.
 		dayOfWeek = DayOfWeek;
 		dayOfMonth = DayOfMonth;
@@ -53,19 +47,19 @@ public:
 		year = Year;
 	}
 	
-	int getDayOfWeek() {
+	byte getDayOfWeek() {
 		return dayOfWeek;
 	}
 	
-	int getDayOfMonth() {
+	byte getDayOfMonth() {
 		return dayOfMonth;
 	}
 	
-	int getMonth() {
+	byte getMonth() {
 		return month;
 	}
 	
-	int getYear() {
+	byte getYear() {
 		return year;
 	}
 	
@@ -92,25 +86,25 @@ public:
  ******************************************************************************/
 class Time {
 private:
-	int second, minute, hour;
+	byte second, minute, hour;
 public:
 	Time() {}
-	Time( int Second, int Minute, int Hour ) {
+	Time( byte Second, byte Minute, byte Hour ) {
 		//TODO: Ensure validity.
 		second = Second;
 		minute = Minute;
 		hour = Hour;
 	}
 	
-	int getSecond() {
+	byte getSecond() {
 		return second;
 	}
 	
-	int getMinute() {
+	byte getMinute() {
 		return minute;
 	}
 	
-	int getHour() {
+	byte getHour() {
 		return hour;
 	}
 	
@@ -174,52 +168,17 @@ private:
 	Date date;
 	Time time;
 public:
-	DateTime( int Second, int Minute, int Hour, int DayOfWeek, int DayOfMonth, int Month, int Year ) {
+	DateTime( byte Second, byte Minute, byte Hour, byte DayOfWeek, byte DayOfMonth, byte Month, byte Year ) {
 		date = Date( DayOfWeek, DayOfMonth, Month, Year );
 		time = Time( Second, Minute, Hour );
 	}
-
-	Date getDate() {
-		return date;
-	}
-
+	
 	Time getTime() {
 		return time;
 	}
-
-	int getSecond() {
-		return time.getSecond();
-	}
 	
-	int getMinute() {
-		return time.getMinute();
-	}
-	
-	int getHour() {
-		return time.getHour();
-	}
-	
-	int getDayOfWeek() {
-		return date.getDayOfWeek();
-	}
-	
-	int getDayOfMonth() {
-		return date.getDayOfMonth();
-	}
-	
-	int getMonth() {
-		return date.getMonth();
-	}
-	
-	int getYear() {
-		return date.getYear();
-	}
-	
-	void printToSerial() {
-		time.printToSerial();
-		Serial.print("  ");
-		date.printToSerial();
-		Serial.println("");
+	Date getDate() {
+  		return date;
 	}
 };
 
@@ -235,23 +194,23 @@ public:
 	void setDateTime( DateTime dt ) {
 		
 		Wire.beginTransmission(DS1307_I2C_ADDRESS);
-		I2C_WRITE(zero);
+		I2C_WRITE(0x00);
 	
-		I2C_WRITE(decToBcd( dt.getSecond() ) & 0x7f);	// 0 to bit 7 starts the clock
-		I2C_WRITE(decToBcd( dt.getMinute() ));
-		I2C_WRITE(decToBcd( dt.getHour() ));	// If you want 12 hour am/pm you need to set
+		I2C_WRITE(decToBcd( dt.getTime().getSecond() ) & 0x7f);	// 0 to bit 7 starts the clock
+		I2C_WRITE(decToBcd( dt.getTime().getMinute() ));
+		I2C_WRITE(decToBcd( dt.getTime().getHour() ));	// If you want 12 hour am/pm you need to set
 						// bit 6 (also need to change readDateDs1307)
-		I2C_WRITE(decToBcd( dt.getDayOfWeek() ));
-		I2C_WRITE(decToBcd( dt.getDayOfMonth() ));
-		I2C_WRITE(decToBcd( dt.getMonth() ));
-		I2C_WRITE(decToBcd( dt.getYear() ));
+		I2C_WRITE(decToBcd( dt.getDate().getDayOfWeek() ));
+		I2C_WRITE(decToBcd( dt.getDate().getDayOfMonth() ));
+		I2C_WRITE(decToBcd( dt.getDate().getMonth() ));
+		I2C_WRITE(decToBcd( dt.getDate().getYear() ));
 		Wire.endTransmission();
 	}
 
 	DateTime getDateTime() {
 		// Reset the register pointer
 		Wire.beginTransmission(DS1307_I2C_ADDRESS);
-		I2C_WRITE(zero);
+		I2C_WRITE(0x00);
 		Wire.endTransmission();
 
 		Wire.requestFrom(DS1307_I2C_ADDRESS, 7);
@@ -413,7 +372,9 @@ Bell bell;
 void setup() {
 	Wire.begin();
 	Serial.begin(57600); 
-	zero=0x00;
+	door = Door();
+	door.close();
+	bell = Bell();
 } 
 
 void loop()
@@ -426,16 +387,23 @@ void loop()
 			case 84:
 			case 116:
 				clock.setDateTime( Clock::serialReadDateTime() );
-				Serial.print("Date / Time set to ");
-				clock.getDateTime().printToSerial();
+				Serial.println("Updated Date and Time.");
+				Serial.print("Date: ");
+				clock.getDateTime().getDate().printToSerial();
+				Serial.print("\nTime: ");
+				clock.getDateTime().getTime().printToSerial();
+				Serial.print("\n");
 				break;
 
 			// If command = "Rr" Read Date ...
 			case 82:
 			case 114:
-				Serial.print("Date / Time is ");
-				clock.getDateTime().printToSerial();
-				break;
+				Serial.println("The current data in memory is:");
+				Serial.print("Date: ");
+				clock.getDateTime().getDate().printToSerial();
+				Serial.print("\nTime: ");
+				clock.getDateTime().getTime().printToSerial();
+				Serial.print("\n");
 				break;
 
 			// If command = "Qq" RTC1307 Memory Functions
@@ -463,20 +431,31 @@ void loop()
 								delay(10);
 							}   
 							Wire.endTransmission();
-							clock.getDateTime().printToSerial();
+							
+							Serial.print("Date: ");
+							clock.getDateTime().getDate().printToSerial();
+							Serial.print("\nTime: ");
+							clock.getDateTime().getTime().printToSerial();
+							Serial.print("\n");
+							
 							Serial.println(": RTC1307 Initialized Memory");
 							break;
 						
 						// If command = "2" RTC1307 Memory Dump
 						case 50:
-							clock.getDateTime().printToSerial();
+							Serial.print("Date: ");
+							clock.getDateTime().getDate().printToSerial();
+							Serial.print("\nTime: ");
+							clock.getDateTime().getTime().printToSerial();
+							Serial.print("\n");
+							
 							Serial.println(": RTC 1307 Dump Begin");
 							Wire.beginTransmission(DS1307_I2C_ADDRESS);
-							I2C_WRITE(zero);
+							I2C_WRITE(0x00);
 							Wire.endTransmission();
 							Wire.requestFrom(DS1307_I2C_ADDRESS, 32);
 							for (i = 0; i <= 31; i++) {  //Register 0-31 - only 32 registers allowed per I2C connection
-								test = I2C_READ();
+								byte test = I2C_READ();
 								Serial.print(i);
 								Serial.print(": ");
 								Serial.print(test, DEC);
@@ -488,7 +467,7 @@ void loop()
 							Wire.endTransmission();
 							Wire.requestFrom(DS1307_I2C_ADDRESS, 32);  
 							for (i = 32; i <= 63; i++) {         //Register 32-63 - only 32 registers allowed per I2C connection
-								test = I2C_READ();
+								byte test = I2C_READ();
 								Serial.print(i);
 								Serial.print(": ");
 								Serial.print(test, DEC);
@@ -504,22 +483,20 @@ void loop()
 	}
 
 	DateTime dt = clock.getDateTime();
-	byte hour = dt.getHour();
-	byte minute = dt.getMinute();
-	byte second = dt.getSecond();
 
-	Time openTime = Time(0,25,16); // Open at 16:25
-	Time closeTime = Time(0,30,16); // Close at 16:30
-	
-	//OPEN DOOR IF TIME IS SUNRISE   
+	Time openTime = Time(0,23,18); // Open at 17:30
+	Time closeTime = Time(0,00,18); // Close at 20:00
+	Serial.println(door.isClosed());
+	//OPEN DOOR IF TIME IS SUNRISE 
 	if ( Time::isTimeInRange( openTime, closeTime, dt.getTime() ) && door.isClosed() ) {
+		Serial.println("Opening Door");
 		door.open();
-		Serial.println(hour);
 	}
 	//RING BELL, WAIT 2 MINUTES, THEN CLOSE DOOR IF TIME IS SUNSET 
 	if ( Time::isTimeInRange( closeTime, openTime, dt.getTime() ) && !(door.isClosed()) ) {
+  		Serial.println("Closing Door");
 		bell.ring( 2000 );
-		delay ( 2000 );
+		delay( 2000 );
 		door.close();
 	}
 	delay( 500 );
