@@ -1,6 +1,7 @@
 #include <Servo.h>
 #include "Wire.h"
 #define DS1307_I2C_ADDRESS 0x68  // This is the I2C address
+
 // Arduino version compatibility Pre-Compiler Directives
 #if defined(ARDUINO) && ARDUINO >= 100   // Arduino v1.0 and newer
   #define I2C_WRITE Wire.write 
@@ -146,7 +147,7 @@ public:
 		return this->getHour() < other.getHour();
 	}
 	
-	static boolean isTimeInRange( Time startTime, Time endTime, Time time ) {
+	static boolean isInRange( Time startTime, Time endTime, Time time ) {
 		if( startTime == endTime ) {
 			return false;
 		}
@@ -154,7 +155,7 @@ public:
 			return ( ( startTime < time ) && ( time < endTime ) );
 		}
 		// The time interval includes midnight. It wraps around.
-		return !( Time::isTimeInRange( endTime, startTime, time ) );
+		return !( Time::isInRange( endTime, startTime, time ) );
 	}
 };
 
@@ -242,8 +243,12 @@ public:
 	}
 };
 
-Clock clock; // Define a Clock object for global use...
-
+/******************************************************************************
+ * BistableServo Class
+ ******************************************************************************
+ * Defines a servo with two stable positions, and a simple interface to move
+ * between them.
+ ******************************************************************************/
 class BistableServo {
   
 private:
@@ -310,6 +315,13 @@ public:
   
 };
 
+/******************************************************************************
+ * Door Class
+ ******************************************************************************
+ * Encapsulates all the hardware and software checks to make the door.
+ * The door can do two things: open and close. The rest is handled by internal
+ * code.
+ ******************************************************************************/
 class Door {
 private:
 	BistableServo panel;
@@ -343,6 +355,11 @@ public:
     
 };
 
+/******************************************************************************
+ * Bell Class
+ ******************************************************************************
+ * Encapsulates the bell hardware, and simplifies making it ring.
+ ******************************************************************************/
 class Bell {
 private:
 	int pin;
@@ -368,6 +385,7 @@ public:
 
 Door door;
 Bell bell;
+Clock clock;
 
 void setup() {
 	Wire.begin();
@@ -375,6 +393,7 @@ void setup() {
 	door = Door();
 	door.close();
 	bell = Bell();
+	clock = Clock();
 } 
 
 void loop()
@@ -483,21 +502,28 @@ void loop()
 	}
 
 	DateTime dt = clock.getDateTime();
-
+	// TODO: Determine these times based on the rough times of sunset, sunrise...
 	Time openTime = Time(0,23,18); // Open at 17:30
 	Time closeTime = Time(0,00,18); // Close at 20:00
-	Serial.println(door.isClosed());
-	//OPEN DOOR IF TIME IS SUNRISE 
-	if ( Time::isTimeInRange( openTime, closeTime, dt.getTime() ) && door.isClosed() ) {
-		Serial.println("Opening Door");
-		door.open();
+
+	// If the door is supposed to be open...
+	if ( Time::isInRange( openTime, closeTime, dt.getTime() ) ) {
+  		// If the door is closed despite this, open it.
+  		if( door.isClosed() ) {
+			Serial.println("Opening Door");
+			door.open();
+		}
 	}
-	//RING BELL, WAIT 2 MINUTES, THEN CLOSE DOOR IF TIME IS SUNSET 
-	if ( Time::isTimeInRange( closeTime, openTime, dt.getTime() ) && !(door.isClosed()) ) {
-  		Serial.println("Closing Door");
-		bell.ring( 2000 );
-		delay( 2000 );
-		door.close();
+
+	// If the door is supposed to be closed...
+	if ( Time::isInRange( closeTime, openTime, dt.getTime() ) ) {
+  		// If the door is open despite this, close it.
+  		if( !(door.isClosed()) ) {
+  			Serial.println("Closing Door");
+			bell.ring( 2000 );
+			delay( 2000 );
+			door.close();
+		}
 	}
 	delay( 500 );
 }
