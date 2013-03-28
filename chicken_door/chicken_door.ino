@@ -13,11 +13,14 @@
 
 // TODO: Use these where possible.
 #define PANEL_SERVO_OUT_PIN 9
-#define PANEL_SERVO_IN_PIN 0
+#define PANEL_SERVO_IN_PIN 0 // A0
 #define LOCK_SERVO_OUT_PIN 10
 #define BELL_OUT_PIN 13
-#define CLOCK_SCL_PIN 0
-#define CLOCK_SDA_PIN 0
+#define CLOCK_SCL_PIN 5 // A5 WARNING: NOT USED.
+#define CLOCK_SDA_PIN 4 // A4 WARNING: NOT USED.
+
+#define PANEL_CLOSE_ANGLE 50
+#define PANEL_OPEN_ANGLE 140
 
 // Convert normal decimal numbers to binary coded decimal
 byte decToBcd(byte val)
@@ -305,8 +308,10 @@ public:
 	PhysicalServoPositionEstimator( int inputPin ) {
 		pin = inputPin;
 		estimatedPose = this->readPosition();
+		if( estimatedPose < 0 ) { estimatedPose = 0; }
 	}
 	virtual int getPosition() {
+		setPosition(0); // Update our estimate....
 		return (int)estimatedPose;
 	}
 	virtual void setPosition( int pose ) {
@@ -339,6 +344,8 @@ private:
 	void moveto( int position ) {
 		// Get our current position...
                 current_position = positionEstimator->getPosition();
+                Serial.print("Current Position: ");
+                Serial.println(current_position);
 		servo.attach( servo_pin );
 		while( current_position < position )
 		{
@@ -421,15 +428,23 @@ public:
 	Door() {
 		//TODO: Replace all values with precompiler #defines.
 		panelEstimator = PhysicalServoPositionEstimator( PANEL_SERVO_IN_PIN );
-		panel = BistableServo( PANEL_SERVO_OUT_PIN, 0, 110, &panelEstimator );
+		panel = BistableServo( PANEL_SERVO_OUT_PIN, PANEL_CLOSE_ANGLE, PANEL_OPEN_ANGLE, &panelEstimator );
 		lockEstimator = VirtualServoPositionEstimator();
 		lock = BistableServo( LOCK_SERVO_OUT_PIN, 95, 0, &lockEstimator );
 	}
   
 	void open() {
+		Serial.println("Entering open...");
+		delay(500);
 		lock.open();
+		Serial.println("Lock is open.");
+		delay(500);
 		panel.open();
+		Serial.println("Panel is open.");
+		delay(500);
 		state = false;
+		Serial.println("State set to open.");
+		delay(500);
 	}
 
 	void ensureOpen() {
@@ -643,25 +658,40 @@ void loop()
 			break;
 	}
 
+	if( door.isClosed() ) {
+		Serial.println("I think I'm closed.");
+	}
+	else{
+  		Serial.println("I think I'm open.");
+	}
+	delay(500);
+
 	// If the door is supposed to be open...
 	if ( Time::isInRange( openTime, closeTime, dt.getTime() ) ) {
+		Serial.println("I think I should be open.");
+		delay(500);
   		// If the door is closed despite this, open it.
   		if( door.isClosed() ) {
 			Serial.println("Opening Door");
+			delay(500);
 			door.open();
 		}
 		else {
-			door.ensureOpen();
+			//door.ensureOpen();
 		}
 	}
 
 	// If the door is supposed to be closed...
 	if ( Time::isInRange( closeTime, openTime, dt.getTime() ) ) {
+  		Serial.println("I think I should be closed.");
+  		delay(500);
   		// If the door is open despite this, close it.
   		if( !(door.isClosed()) ) {
   			Serial.println("Closing Door");
+  			delay(500);
 			bell.ring( 2000 ); // TODO: Change this to be more reasonable.
 			delay( 2000 );
+			delay(500);
 			door.close();
 		}
 		//TODO: Ensure it's locked?
