@@ -11,6 +11,14 @@
   #define I2C_READ Wire.receive
 #endif
 
+// TODO: Use these where possible.
+#define PANEL_SERVO_OUT_PIN 9
+#define PANEL_SERVO_IN_PIN 0
+#define LOCK_SERVO_OUT_PIN 10
+#define BELL_OUT_PIN 13
+#define CLOCK_SCL_PIN 0
+#define CLOCK_SDA_PIN 0
+
 // Convert normal decimal numbers to binary coded decimal
 byte decToBcd(byte val)
 {
@@ -244,6 +252,73 @@ public:
 };
 
 /******************************************************************************
+ * ServoPositionEstimator Class
+ ******************************************************************************
+ * Abstract class to define an interface of an estimator of the servo position.
+ ******************************************************************************/
+class ServoPositionEstimator {
+public:
+	// Returns the current estimation of the servo position.
+	virtual int getPosition() = 0;
+	// Artificially add an estimated position. It's a good
+	// idea to call this after forcing a position.
+	virtual void setPosition( int pose ) = 0;
+};
+
+/******************************************************************************
+ * VirtualServoPositionEstimator Class
+ ******************************************************************************
+ * A dummy class to allow for general instantiation. Just tracks the last given
+ * value.
+ ******************************************************************************/
+class VirtualServoPositionEstimator : public ServoPositionEstimator {
+private:
+	int estimatedPose;
+public:
+	VirtualServoPositionEstimator() {
+		estimatedPose = 0;
+	}
+	int getPosition() {
+		return estimatedPose;
+	}
+	void setPosition( int pose ) {
+		estimatedPose = pose;
+	}
+};
+
+/******************************************************************************
+ * PhysicalServoPositionEstimator Class
+ ******************************************************************************
+ * Actually attempt to read the value off the pin.
+ ******************************************************************************/
+class PhysicalServoPositionEstimator : public ServoPositionEstimator {
+private:
+	float estimatedPose;
+	int pin;
+	int readPosition() {
+  		return 12 * analogRead( pin ) - 3111;
+	}
+public:
+	PhysicalServoPositionEstimator() {
+		pin = -1;
+	}
+	PhysicalServoPositionEstimator( int inputPin ) {
+		pin = inputPin;
+		estimatedPose = this->readPosition();
+	}
+	virtual int getPosition() {
+		return (int)estimatedPose;
+	}
+	virtual void setPosition( int pose ) {
+		// Totally ignore whatever we were just sent.
+		// Load our physicallly based estimation, and if it
+		// is not absurd, integrate it into our estimation.
+		pose = this->readPosition();
+		if( pose > 0 ) estimatedPose = .6 * estimatedPose + .4 * this->readPosition();
+	}
+};
+
+/******************************************************************************
  * BistableServo Class
  ******************************************************************************
  * Defines a servo with two stable positions, and a simple interface to move
@@ -258,20 +333,26 @@ private:
 
 	int servo_pin;
 	Servo servo;
+
+	ServoPositionEstimator* positionEstimator;
   
 	void moveto( int position ) {
+		// Get our current position...
+                current_position = positionEstimator->getPosition();
 		servo.attach( servo_pin );
 		while( current_position < position )
 		{
 			servo.write( current_position ); 
 			delay(30);
-			current_position += 1; 
+			current_position++;
+			positionEstimator->setPosition( current_position ); 
 		}
 		while( current_position > position )
 		{
-			servo.write( current_position ); 
+			servo.write( current_position );
 			delay(30);
-			current_position -= 1; 
+			current_position--;
+			positionEstimator->setPosition( current_position ); 
 		}
 		servo.detach(); // Relax the servo and stop using power.
 	}    
@@ -284,14 +365,20 @@ public:
 		current_position = closed_position;
 
 		servo_pin = -1;
+
+		positionEstimator = NULL;
 	}
+	
 	// Initialize Member Variables. Heavily Dependant on physical implementation.
-	BistableServo( int pin, int closed_pos, int open_pos ) {
+	BistableServo( int output_pin, int closed_pos, int open_pos, ServoPositionEstimator* se ) {
 		closed_position = closed_pos;
 		open_position = open_pos;
-		current_position = closed_position; // Start the door closed.
+		current_position = closed_position; // Start the servo closed.
 
-		servo_pin = pin;
+		servo_pin = output_pin;
+
+		positionEstimator = se;
+		positionEstimator->setPosition( current_position );
 	}
   
 	// Moves the door to the open position. 
@@ -307,6 +394,7 @@ public:
 	void hold() {
 		servo.attach( servo_pin );
 		servo.write( current_position );
+		positionEstimator->setPosition( current_position );
 	}
   
 	void release() {
@@ -325,12 +413,17 @@ public:
 class Door {
 private:
 	BistableServo panel;
+	PhysicalServoPositionEstimator panelEstimator; // This assumes the panel Servo has been modified to provide position feedback.
 	BistableServo lock;
+	VirtualServoPositionEstimator lockEstimator; // The lock has no physical position estimation.
 	boolean state;
 public:
 	Door() {
-		panel = BistableServo( 9, 0, 110 );
-		lock = BistableServo( 10, 95, 0 );
+		//TODO: Replace all values with precompiler #defines.
+		panelEstimator = PhysicalServoPositionEstimator( PANEL_SERVO_IN_PIN );
+		panel = BistableServo( PANEL_SERVO_OUT_PIN, 0, 110, &panelEstimator );
+		lockEstimator = VirtualServoPositionEstimator();
+		lock = BistableServo( LOCK_SERVO_OUT_PIN, 95, 0, &lockEstimator );
 	}
   
 	void open() {
@@ -343,7 +436,7 @@ public:
 		lock.open();
 		delay( 1000 );
 		panel.close();
-		panel.hold();
+		panel.hold();//TODO: Try without this.
 		lock.close();
 		panel.release();
 		state = true;
@@ -365,7 +458,7 @@ private:
 	int pin;
 public:
 	Bell() {
-		pin = 13;
+		pin = BELL_OUT_PIN;
 
 		pinMode(pin, OUTPUT);
 		digitalWrite(pin, HIGH);
@@ -503,8 +596,47 @@ void loop()
 
 	DateTime dt = clock.getDateTime();
 	// TODO: Determine these times based on the rough times of sunset, sunrise...
-	Time openTime = Time(0,23,18); // Open at 17:30
-	Time closeTime = Time(0,00,18); // Close at 20:00
+	Time openTime = Time(0,30,8); // Open at 8:30
+
+	Time closeTime; // Close at the appropriate time, based on the month.
+	switch( dt.getDate().getMonth() ) {
+		case 1:
+			closeTime = Time(0,34,17);
+			break;
+		case 2:
+			closeTime = Time(0,11,18);
+			break;
+		case 3:
+			closeTime = Time(0,44,19);
+			break;
+		case 4:
+			closeTime = Time(0,20,20);
+			break;
+		case 5:
+			closeTime = Time(0,56,20);
+			break;
+		case 6:
+			closeTime = Time(0,23,21);
+			break;
+		case 7:
+			closeTime = Time(0,19,21);
+			break;
+		case 8:
+			closeTime = Time(0,43,20);
+			break;
+		case 9:
+			closeTime = Time(0,15,19);
+			break;
+		case 10:
+			closeTime = Time(0,58,18);
+			break;
+		case 11:
+			closeTime = Time(0,20,17);
+			break;
+		case 12:
+			closeTime = Time(0,11,17);
+			break;
+	}
 
 	// If the door is supposed to be open...
 	if ( Time::isInRange( openTime, closeTime, dt.getTime() ) ) {
@@ -520,7 +652,7 @@ void loop()
   		// If the door is open despite this, close it.
   		if( !(door.isClosed()) ) {
   			Serial.println("Closing Door");
-			bell.ring( 2000 );
+			bell.ring( 2000 ); // TODO: Change this to be more reasonable.
 			delay( 2000 );
 			door.close();
 		}
