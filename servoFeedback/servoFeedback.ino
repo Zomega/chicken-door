@@ -1,7 +1,7 @@
 #include <Servo.h>
 
 #define SERVO_OUT_PIN 9
-#define SERVO_IN_PIN 10
+#define SERVO_IN_PIN 0
 
 Servo servo;
 

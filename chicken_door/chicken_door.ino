@@ -431,7 +431,12 @@ public:
 		panel.open();
 		state = false;
 	}
-  
+
+	void ensureOpen() {
+		for( int i = 0; i < 10; i++ ){ panelEstimator.setPosition(0); delay(100); } // Update our position estimation...
+		if( panelEstimator.getPosition() < 50 && !isClosed() ) panel.open();
+	}
+
 	void close() {
 		lock.open();
 		delay( 1000 );
@@ -645,6 +650,9 @@ void loop()
 			Serial.println("Opening Door");
 			door.open();
 		}
+		else {
+			door.ensureOpen();
+		}
 	}
 
 	// If the door is supposed to be closed...
@@ -656,6 +664,7 @@ void loop()
 			delay( 2000 );
 			door.close();
 		}
+		//TODO: Ensure it's locked?
 	}
 	delay( 500 );
 }
